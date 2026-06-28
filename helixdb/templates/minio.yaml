@@ -1,0 +1,100 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "helixdb.fullname" . }}-minio-data
+  labels:
+    {{- include "helixdb.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.minio.storage.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "helixdb.fullname" . }}-minio
+  labels:
+    app.kubernetes.io/name: {{ include "helixdb.name" . }}-minio
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "helixdb.name" . }}-minio
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "helixdb.name" . }}-minio
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: minio
+          image: "{{ .Values.minio.image.repository }}:{{ .Values.minio.image.tag }}"
+          imagePullPolicy: {{ .Values.minio.image.pullPolicy }}
+          ports:
+            - name: s3
+              containerPort: 9000
+              protocol: TCP
+            - name: console
+              containerPort: 9001
+              protocol: TCP
+          env:
+            - name: MINIO_ROOT_USER
+              value: "{{ .Values.minio.rootUser }}"
+            - name: MINIO_ROOT_PASSWORD
+              value: "{{ .Values.minio.rootPassword }}"
+          command:
+            - minio
+          args:
+            - server
+            - /data
+            - --console-address
+            - :9001
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: s3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.minio.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "helixdb.fullname" . }}-minio-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helixdb.fullname" . }}-minio
+  labels:
+    app.kubernetes.io/name: {{ include "helixdb.name" . }}-minio
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: s3
+      protocol: TCP
+      name: s3
+    - port: 9001
+      targetPort: console
+      protocol: TCP
+      name: console
+  selector:
+    app.kubernetes.io/name: {{ include "helixdb.name" . }}-minio
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

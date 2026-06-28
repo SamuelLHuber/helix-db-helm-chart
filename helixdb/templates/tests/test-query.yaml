@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "helixdb.fullname" . }}-test-query"
+  labels:
+    {{- include "helixdb.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: curl
+      image: curlimages/curl:latest
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Testing HelixDB query endpoint..."
+          ENDPOINT="http://{{ include "helixdb.fullname" . }}:{{ .Values.service.port }}/v1/query"
+          echo "Target: $ENDPOINT"
+
+          # Write a test node
+          echo "Writing node..."
+          curl -sf -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d '{"request_type":"write","query":{"queries":[{"Query":{"name":"addUser","steps":[{"AddN":{"label":"User","properties":[["name",{"Value":{"String":"Alice"}}],["email",{"Value":{"String":"alice@example.com"}}]],"vector":null}}],"condition":null}}],"returns":["addUser"]},"parameters":{}}' \
+            -o /tmp/write.json
+          echo "Write response:"
+          cat /tmp/write.json
+          echo ""
+
+          # Read it back
+          echo "Reading node back..."
+          curl -sf -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -d '{"request_type":"read","query":{"queries":[{"Query":{"name":"getUser","steps":[{"NWhere":{"Eq":["$label",{"String":"User"}]}},{"Where":{"Eq":["name",{"String":"Alice"}]}},"Count"],"condition":null}}],"returns":["getUser"]},"parameters":{}}' \
+            -o /tmp/read.json
+          echo "Read response:"
+          cat /tmp/read.json
+          echo ""
+
+          # Check that count is > 0 (meaning Alice was found)
+          if grep -q '"count":[1-9]' /tmp/read.json; then
+            echo "✅ PASS: Alice found in query response"
+            exit 0
+          else
+            echo "❌ FAIL: Alice not found in query response"
+            exit 1
+          fi

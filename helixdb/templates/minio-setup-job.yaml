@@ -1,0 +1,37 @@
+{{- if .Values.minio.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "helixdb.fullname" . }}-minio-setup
+  labels:
+    {{- include "helixdb.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "helixdb.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: "{{ .Values.minio.mcImage.repository }}:{{ .Values.minio.mcImage.tag }}"
+          imagePullPolicy: {{ .Values.minio.mcImage.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Waiting for MinIO..."
+              until mc alias set local http://{{ include "helixdb.fullname" . }}-minio:9000 {{ .Values.minio.rootUser }} {{ .Values.minio.rootPassword }} 2>/dev/null; do
+                echo "MinIO not ready yet, retrying..."
+                sleep 2
+              done
+              echo "Creating bucket if not exists..."
+              mc mb --ignore-existing local/{{ .Values.minio.bucket }}
+              mc ls local/{{ .Values.minio.bucket }}
+              echo "Bucket setup complete"
+{{- end }}

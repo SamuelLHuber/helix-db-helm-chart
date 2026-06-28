@@ -1,0 +1,6 @@
+apiVersion: v2
+name: helixdb
+description: HelixDB — graph-vector database for knowledge graphs and AI memory
+type: application
+version: 0.1.0
+appVersion: "latest"

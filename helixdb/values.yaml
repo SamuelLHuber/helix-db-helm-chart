@@ -1,0 +1,60 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/helixdb/enterprise-dev
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+helixdb:
+  storage:
+    mode: disk
+  dbConfig:
+    vectorConfig:
+      m: 16
+      efConstruction: 128
+      efSearch: 768
+      dbMaxSizeGb: 20
+    graphConfig:
+      secondaryIndices: []
+    mcp: true
+    bm25: true
+    embeddingModel: "text-embedding-ada-002"
+
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  mcImage:
+    repository: minio/mc
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  rootUser: minioadmin
+  rootPassword: minioadmin
+  bucket: helix-db
+  region: us-east-1
+  storage:
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

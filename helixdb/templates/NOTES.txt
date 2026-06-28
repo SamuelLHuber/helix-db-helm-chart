@@ -1,0 +1,13 @@
+HelixDB has been deployed!
+
+1. Get the application URL:
+   export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "helixdb.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 6969:8080
+   # Then visit http://localhost:6969 or run queries against it
+
+2. Run the Helm test to verify it works:
+   helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+3. Access MinIO console (if enabled):
+   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "helixdb.fullname" . }}-minio 9001:9001
+   # Then visit http://localhost:9001 (login: {{ .Values.minio.rootUser }} / {{ .Values.minio.rootPassword }})
